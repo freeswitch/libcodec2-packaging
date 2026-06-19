@@ -1,0 +1,11 @@
+LIBRARY codec2
+EXPORTS
+	codec2_create
+	codec2_destroy
+	codec2_encode
+	codec2_decode
+	codec2_samples_per_frame
+	codec2_bits_per_frame
+	codec2_set_lpc_post_filter
+	codec2_get_spare_bit_index
+	codec2_rebuild_spare_bit

@@ -1,0 +1,12 @@
+# Keep the Docker build context small: only the Dockerfile and build-codec2.ps1
+# are needed inside the image.
+.git
+.github
+examples
+artifacts
+*.zip
+SHA256SUMS.txt
+configure-*.log
+build-*.log
+README.md
+.gitignore

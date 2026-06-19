@@ -1,0 +1,101 @@
+name: Build Codec2 (Windows)
+
+# Builds Codec2 as a shared library (codec2.dll + codec2.lib) on a Windows runner
+# and uploads the headers + binaries as zip artifacts -- the same zips the Docker
+# image produces.
+#
+# Trigger manually (Actions tab -> "Build Codec2 (Windows)" -> Run workflow)
+# choosing the version, or push a tag like `codec2-v0.2` to build it and attach
+# the zips to a GitHub Release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      codec2_version:
+        description: 'Package/label version (vendored source is codec2 0.2; this just names the zips)'
+        required: true
+        default: '0.2'
+      configs:
+        description: 'Configurations to build (space-separated)'
+        required: true
+        default: 'Release Debug'
+      platforms:
+        description: 'Platforms to build (space-separated; x64-only by default, Win32 also supported)'
+        required: true
+        default: 'x64'
+  push:
+    tags:
+      - 'codec2-v*'      # e.g. push tag `codec2-v0.2`
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: write      # needed to attach zips to a Release on tag push
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v4
+
+      - name: Resolve build parameters
+        id: p
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'push') {
+            # tag form: codec2-v0.2  ->  version 0.2
+            $ver  = "$env:GITHUB_REF_NAME" -replace '^codec2-v', ''
+            $cfg  = 'Release Debug'
+            $plat = 'x64'
+          } else {
+            $ver  = '${{ inputs.codec2_version }}'
+            $cfg  = '${{ inputs.configs }}'
+            $plat = '${{ inputs.platforms }}'
+          }
+          "codec2_version=$ver" >> $env:GITHUB_OUTPUT
+          "configs=$cfg"        >> $env:GITHUB_OUTPUT
+          "platforms=$plat"     >> $env:GITHUB_OUTPUT
+          Write-Host "Building Codec2 $ver [$cfg] for [$plat]"
+
+      # windows-2022 ships Visual Studio 2022; confirm the C++ toolset (cl.exe) is
+      # present via vswhere -- that's all build-codec2.ps1 needs (no CMake).
+      - name: Verify toolchain
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1
+          if (-not $vs) { throw "No Visual Studio install with the C++ toolset (VC.Tools.x86.x64) was found." }
+          Write-Host "VS install : $vs"
+
+      - name: Build Codec2 + package zips
+        shell: pwsh
+        env:
+          CODEC2_VERSION:    ${{ steps.p.outputs.codec2_version }}
+          CONFIGS:           ${{ steps.p.outputs.configs }}
+          PLATFORMS:         ${{ steps.p.outputs.platforms }}
+          OUT_DIR:           ${{ github.workspace }}\artifacts
+          CODEC2_BUILD_ROOT: C:\cb
+        run: .\build-codec2.ps1
+
+      - name: List artifacts
+        shell: pwsh
+        run: Get-ChildItem '${{ github.workspace }}\artifacts' | Format-Table Name, Length
+
+      - name: Upload zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: codec2-${{ steps.p.outputs.codec2_version }}
+          path: |
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt
+            artifacts/*.log
+          if-no-files-found: error
+          retention-days: 30
+
+      # On a tag push, also attach the zips to a GitHub Release for easy download.
+      - name: Publish to Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt

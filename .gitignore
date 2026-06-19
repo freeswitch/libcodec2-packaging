@@ -1,0 +1,16 @@
+# Build outputs
+/artifacts/
+*.zip
+SHA256SUMS.txt
+configure-*.log
+build-*.log
+
+# Codec2 source / build trees (when building natively in-tree)
+/cb/
+codec2-*.tar.gz
+build-*/
+install-*/
+
+# OS / editor cruft
+Thumbs.db
+.DS_Store

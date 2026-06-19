@@ -1,0 +1,12 @@
+# This repository targets Windows. Keep CRLF line endings on checkout.
+* text=auto eol=crlf
+
+# The build script is invoked as a file by CI/Docker; CRLF is fine for pwsh.
+*.ps1   text eol=crlf
+
+# Anything binary that might land here stays untouched.
+*.zip   binary
+*.dll   binary
+*.lib   binary
+*.pdb   binary
+*.exe   binary
